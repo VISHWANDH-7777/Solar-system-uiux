@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #f2cc0d;
+  --color-background-light: #f8f8f5;
+  --color-background-dark: #0a0904;
+  --color-surface: #221f10;
+  
+  --font-display: "Inter", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100;
+  }
+}
+
+.glass {
+  background: rgba(34, 31, 16, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(242, 204, 13, 0.1);
+}
+
+.sun-glow {
+  box-shadow: 0 0 80px 20px rgba(242, 204, 13, 0.4);
+}
+
+.orbit-path {
+  @apply absolute border border-primary/10 rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2;
+}
+
+.harmony-wave {
+  background: linear-gradient(90deg, transparent 0%, rgba(242, 204, 13, 0.2) 50%, transparent 100%);
+  mask-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 1000 100" xmlns="http://www.w3.org/2000/svg"><path d="M0 50 Q 125 0, 250 50 T 500 50 T 750 50 T 1000 50" fill="none" stroke="black" stroke-width="20"/></svg>');
+  mask-repeat: repeat-x;
+}
