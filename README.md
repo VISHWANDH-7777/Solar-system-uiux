@@ -1,118 +1,96 @@
-# 🌌 LegalOrbit – AI Powered Legal Document Simplifier
+# LegalOrbit – Visual Legal Document Simplifier
 
-<div align="center">
-<img width="1200" height="475" alt="Project Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+LegalOrbit is an experimental platform that helps people understand complex legal documents through visual analysis. Instead of reading long contracts line by line, the system analyzes clauses and presents the information through interactive visual models.
 
-LegalOrbit is an **AI-powered legal document analysis platform** designed to transform complex contracts and legal agreements into **interactive visual insights**.  
-
-Instead of reading long and complicated legal documents, users can explore them through **cosmic visualizations and intelligent analytics** that reveal clause importance, risks, and relationships.
-
-The system simplifies legal understanding by combining **AI-based clause analysis with space-inspired visual metaphors**.
+The idea behind the project is simple: legal structures often follow patterns and relationships that can be understood more easily when visualized. LegalOrbit converts those patterns into visual representations so users can explore risks, obligations, and clause relationships in a more intuitive way.
 
 ---
 
-# 🚀 Key Features
+## What the Project Does
 
-## 🌞 Solar System Clause Visualization
-Legal clauses are represented as **planets orbiting a central sun**.
+The system analyzes a legal document and breaks it down into individual clauses. Each clause is evaluated for importance, legal risk, and its relationship to other parts of the document. The results are then presented using multiple visual layers that help users quickly understand the structure of the contract.
 
-- **Sun** → Core purpose of the document  
-- **Planet size** → Clause importance  
-- **Orbit distance** → Clause hierarchy  
-- **Color indicators** → Risk levels  
-
-This visualization allows users to quickly understand the **structure and importance of clauses**.
+Instead of relying only on text summaries, the platform provides interactive visual tools that reveal how different clauses influence the overall agreement.
 
 ---
 
-## 🌌 Clause Galaxy Network
-The **Clause Galaxy** view represents clauses as a **galaxy of interconnected nodes**, showing how different clauses influence or depend on each other.
+## Main Features
 
-Features include:
+### Solar Map
+The Solar Map represents the structure of a legal document using a solar‑system inspired layout.
 
-- Clause relationship discovery  
-- Legal dependency visualization  
-- Cluster detection for related clauses  
+- The **sun** represents the central purpose of the agreement.
+- **Planets** represent individual clauses.
+- The **distance from the center** reflects clause importance.
+- **Colors and size** indicate potential legal risk.
 
----
-
-## 🔥 Risk Heatmap Analytics
-The Risk Heatmap categorizes legal risks across key domains:
-
-- Financial
-- Legal
-- Operational
-- Intellectual Property
-- Force Majeure
-
-Clauses are automatically classified into **Low, Moderate, or Critical risk levels**.
+This view helps users immediately see which clauses have the most influence in the contract.
 
 ---
 
-## 🌊 Harmony Wave Analysis
-The Harmony Wave measures the **balance between obligations and protections** throughout the legal document.
+### Clause Galaxy
+The Clause Galaxy provides a broader view of the document by showing relationships between clauses.
 
-This helps detect:
-
-- Contract imbalance
-- Risk spikes
-- Uneven legal responsibility distribution
+Instead of a hierarchical structure, this visualization displays clauses as nodes connected in a galaxy‑like network. It becomes easier to detect clusters of related clauses, dependencies, and sections that may contain concentrated risk.
 
 ---
 
-## 🛰 Trajectory Prediction
-Trajectory Analysis simulates **future legal influence and risk propagation**.
+### Risk Heatmap
+The Risk Heatmap categorizes clauses across different legal domains such as financial obligations, operational terms, intellectual property, and force majeure.
 
-The system predicts:
-
-- Potential legal conflicts
-- Risk escalation across clauses
-- Stability of the agreement structure
+This matrix allows users to quickly identify where the most critical legal risks exist within the document.
 
 ---
 
-## 📄 Export Legal Analysis Report
-Users can export the **complete legal analysis as a professional PDF report**, including:
+### Harmony Wave
+The Harmony Wave shows how balanced a document is between obligations and protections.
 
-- Clause breakdown
-- Risk heatmap insights
-- Harmony wave analysis
-- Trajectory predictions
-- Document summary
+Contracts that heavily favor one party will create an uneven wave pattern, while well‑balanced agreements produce smoother patterns.
+
+This visualization helps highlight potential fairness issues in the agreement.
 
 ---
 
-# 🛠 Technology Stack
+### Trajectory Analysis
+Trajectory Analysis simulates how clauses might influence the legal outcome of the document.
 
-### Frontend
+By examining the relationships between clauses, the system can estimate how certain risks might evolve and which sections could potentially create future disputes.
+
+---
+
+### Export Analysis
+The platform also allows users to export the analysis as a downloadable PDF report. This report summarizes the document structure, clause analysis, risk evaluation, and visual insights generated by the system.
+
+---
+
+## Technology Stack
+
+**Frontend**
+
 - React
 - Three.js
 - Tailwind CSS
-- Framer Motion
 
-### Backend
+**Backend**
+
 - Node.js
-- Express.js
+- Express
 
-### AI & NLP
+**AI / Text Processing**
+
 - Gemini API
-- Custom Legal Clause Analysis Engine
+- Custom clause analysis pipeline
 
 ---
 
-# 📦 Running the Project Locally
+## Running the Project Locally
 
-## Prerequisites
+### Requirements
 
-Make sure you have installed:
+- Node.js
+- npm
 
-- **Node.js**
-- **npm**
-
----
-
-## 1. Install Dependencies
+### Install dependencies
 
 ```bash
 npm install
