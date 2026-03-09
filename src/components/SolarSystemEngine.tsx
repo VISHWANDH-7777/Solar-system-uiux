@@ -489,7 +489,7 @@ export const SolarSystemEngine: React.FC<{ data: DocumentData }> = ({ data }) =>
   return (
     <div 
       ref={containerRef} 
-      className={`relative w-full h-full overflow-hidden transition-colors duration-700 ${isFullScreen ? 'fixed inset-0 z-[200]' : 'h-[calc(100vh-64px)]'}`}
+      className={`relative w-full flex-1 overflow-hidden transition-colors duration-700 ${isFullScreen ? 'fixed inset-0 z-[200]' : ''}`}
     >
       <canvas 
         ref={canvasRef} 

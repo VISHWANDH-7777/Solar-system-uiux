@@ -17,6 +17,7 @@ export interface Clause {
   clause_title: string;
   clause_text: string;
   simplified_text: string;
+  category: string;
   importance_score: number;
   risk_level: 'Low' | 'Medium' | 'High';
   complexity_score: number;

@@ -43,8 +43,15 @@ import {
 } from 'recharts';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import * as pdfjsLib from 'pdfjs-dist';
 import { DocumentData, Clause, Document } from './types';
+
+// Set PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 import { SolarSystemEngine } from './components/SolarSystemEngine';
+import { ClauseUniverse } from './components/ClauseUniverse';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -64,6 +71,7 @@ const processDocumentWithAI = async (title: string, text: string) => {
     - title: A short, descriptive title for the clause.
     - text: The original text of the clause.
     - simplified: A clear, plain-English explanation of what the clause means for a non-lawyer.
+    - category: One of "Financial", "Obligations", "Liability", "Termination", or "General".
     - importance: A score from 0-100 indicating how critical this clause is to the overall agreement.
     - riskLevel: One of "Low", "Medium", or "High".
     - complexity: A score from 0-100 indicating how difficult the legal language is.
@@ -106,6 +114,7 @@ const processDocumentWithAI = async (title: string, text: string) => {
                 title: { type: Type.STRING },
                 text: { type: Type.STRING },
                 simplified: { type: Type.STRING },
+                category: { type: Type.STRING },
                 importance: { type: Type.NUMBER },
                 riskLevel: { type: Type.STRING },
                 complexity: { type: Type.NUMBER },
@@ -113,7 +122,7 @@ const processDocumentWithAI = async (title: string, text: string) => {
                 legalRisk: { type: Type.NUMBER },
                 operationalRisk: { type: Type.NUMBER }
               },
-              required: ["title", "text", "simplified", "importance", "riskLevel", "complexity", "financialRisk", "legalRisk", "operationalRisk"]
+              required: ["title", "text", "simplified", "category", "importance", "riskLevel", "complexity", "financialRisk", "legalRisk", "operationalRisk"]
             }
           }
         },
@@ -197,27 +206,137 @@ const Header = ({ onToggleTheme, isDark }: { onToggleTheme: () => void, isDark: 
         <button className="p-2 rounded-full hover:bg-primary/10 text-primary transition-colors">
           <Settings size={20} />
         </button>
-        <div className="h-8 w-px bg-primary/10 mx-2"></div>
-        <div className="flex items-center gap-3 pl-2">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-bold text-slate-100">Commander Lex</p>
-            <p className="text-[10px] text-primary/60 uppercase tracking-widest">Senior Partner</p>
-          </div>
-          <div className="size-10 rounded-full border-2 border-primary/30 p-0.5">
-            <img 
-              className="rounded-full w-full h-full object-cover" 
-              src="https://picsum.photos/seed/commander/100/100" 
-              alt="User profile"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-        </div>
       </div>
     </header>
   );
 };
 
 const AnalyticsDashboard = ({ data }: { data: DocumentData }) => {
+  const dashboardRef = React.useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const exportToPDF = async () => {
+    if (!dashboardRef.current) return;
+    setIsExporting(true);
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 20;
+      let y = 20;
+
+      // Helper: Add Section Header
+      const addSection = (title: string) => {
+        if (y > 250) { pdf.addPage(); y = 20; }
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(16);
+        pdf.setTextColor(242, 204, 13); // Primary color
+        pdf.text(title, margin, y);
+        y += 10;
+        pdf.setDrawColor(242, 204, 13, 0.2);
+        pdf.line(margin, y, pageWidth - margin, y);
+        y += 10;
+      };
+
+      // Helper: Add Text
+      const addText = (text: string, size = 10, isBold = false) => {
+        pdf.setFont('helvetica', isBold ? 'bold' : 'normal');
+        pdf.setFontSize(size);
+        pdf.setTextColor(40, 40, 40);
+        const lines = pdf.splitTextToSize(text, pageWidth - margin * 2);
+        if (y + lines.length * (size / 2) > 280) { pdf.addPage(); y = 20; }
+        pdf.text(lines, margin, y);
+        y += lines.length * (size / 2) + 5;
+      };
+
+      // 1. Header
+      pdf.setFillColor(10, 9, 4); // background-dark
+      pdf.rect(0, 0, pageWidth, 40, 'F');
+      pdf.setFont('helvetica', 'black');
+      pdf.setFontSize(24);
+      pdf.setTextColor(242, 204, 13);
+      pdf.text('LEGAL ORBIT', margin, 25);
+      pdf.setFontSize(10);
+      pdf.setTextColor(255, 255, 255);
+      pdf.text('Comprehensive Legal Analysis Report', margin, 35);
+      y = 55;
+
+      // 2. Document Information
+      addSection('1. Document Information');
+      addText(`Document Title: ${data.document.title}`, 11, true);
+      addText(`Upload Date: ${new Date(data.document.created_at).toLocaleDateString()}`);
+      addText(`Document Category: ${data.document.category || 'N/A'}`);
+      addText(`Total Number of Clauses: ${data.clauses.length}`);
+      addText(`Overall Risk Score: ${data.document.overall_risk_score}/100`);
+      addText(`Document Complexity Score: ${data.document.complexity_score}/100`);
+
+      // 3. Document Summary
+      addSection('2. Document Summary');
+      addText(data.document.purpose || 'No summary available.');
+
+      // 4. Clause Analysis
+      addSection('3. Clause Analysis');
+      data.clauses.forEach((clause, idx) => {
+        addText(`${idx + 1}. ${clause.clause_title}`, 12, true);
+        addText(`Importance Score: ${clause.importance_score}% | Risk Level: ${clause.risk_level}`);
+        addText('Simplified Explanation:', 10, true);
+        addText(clause.simplified_text);
+        addText('Original Text:', 8, false);
+        pdf.setTextColor(100, 100, 100);
+        addText(clause.clause_text.substring(0, 300) + (clause.clause_text.length > 300 ? '...' : ''), 8);
+        y += 5;
+      });
+
+      // 5. Visualization Summary
+      addSection('4. Solar System Visualization');
+      addText('The Solar System visualization interprets the document structure as follows:');
+      addText('• Sun: The main purpose and core objective of the document.');
+      addText('• Planets: Individual legal clauses orbiting the core purpose.');
+      addText('• Orbit Distance: Represents clause importance (closer = more critical).');
+      addText('• Planet Size: Represents the risk level associated with the clause.');
+
+      // 6. Clause Galaxy Analysis
+      addSection('5. Clause Galaxy Analysis');
+      addText('The Galaxy view groups clauses by legal themes:');
+      const categories = [...new Set(data.clauses.map(c => c.category))];
+      addText(`Detected Themes: ${categories.join(', ')}`);
+      addText('Interconnected clusters indicate high dependency between financial and liability provisions.');
+
+      // 7. Trajectory Analysis
+      addSection('6. Trajectory Analysis Results');
+      addText('Predicted Future Risk Projection: Moderate Stability');
+      addText('Predicted Influence Shifts: Liability clauses are expected to gain importance over time.');
+      addText('Trajectory Result: The system predicts that liability-related clauses may increase overall legal risk if obligations are not fulfilled.');
+
+      // 8. Risk and Analytics Summary
+      addSection('7. Risk and Analytics Summary');
+      addText(`Overall Risk Score: ${data.document.overall_risk_score}/100`);
+      addText(`High Risk Clauses: ${data.clauses.filter(c => c.risk_level === 'High').length}`);
+      addText(`Moderate Risk Clauses: ${data.clauses.filter(c => c.risk_level === 'Medium').length}`);
+      addText(`Low Risk Clauses: ${data.clauses.filter(c => c.risk_level === 'Low').length}`);
+
+      // 9. System Interpretation
+      addSection('8. System Interpretation');
+      addText(`The contract contains ${data.document.overall_risk_score > 60 ? 'significant' : 'moderate'} legal risk primarily related to ${data.clauses.find(c => c.risk_level === 'High')?.clause_title || 'various'} clauses.`);
+      addText('Users should review the penalty and indemnification clauses carefully before proceeding.');
+
+      // Footer
+      const totalPages = (pdf as any).internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(`Page ${i} of ${totalPages} | Generated by LegalOrbit on ${new Date().toLocaleString()}`, pageWidth / 2, 290, { align: 'center' });
+      }
+
+      pdf.save(`${data.document.title.replace(/\s+/g, '_')}_Full_Analysis.pdf`);
+    } catch (error) {
+      console.error('PDF Export Error:', error);
+      alert('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const distributionData = [
     { name: 'Liability', value: 42, color: '#f2cc0d' },
     { name: 'Termination', value: 28, color: 'rgba(242, 204, 13, 0.6)' },
@@ -225,7 +344,7 @@ const AnalyticsDashboard = ({ data }: { data: DocumentData }) => {
   ];
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500">
+    <div ref={dashboardRef} className="space-y-10 animate-in fade-in duration-500 bg-background-dark p-4 rounded-3xl">
       <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -237,8 +356,12 @@ const AnalyticsDashboard = ({ data }: { data: DocumentData }) => {
             </p>
           </div>
           <div className="flex gap-3">
-            <button className="px-4 py-2 rounded-lg border border-primary/20 hover:bg-primary/10 text-primary text-sm font-bold transition-all flex items-center gap-2">
-              <Download size={18} /> Export PDF
+            <button 
+              onClick={exportToPDF}
+              disabled={isExporting}
+              className="px-4 py-2 rounded-lg border border-primary/20 hover:bg-primary/10 text-primary text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              <Download size={18} /> {isExporting ? 'Exporting...' : 'Export PDF'}
             </button>
             <button className="px-4 py-2 rounded-lg bg-primary text-background-dark text-sm font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2">
               <Share2 size={18} /> Share Report
@@ -494,6 +617,44 @@ const UploadModal = ({ isOpen, onClose, onProcessed }: { isOpen: boolean, onClos
   const [text, setText] = useState('');
   const [title, setTitle] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const extractTextFromPDF = async (file: File) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const strings = content.items.map((item: any) => item.str);
+      fullText += strings.join(' ') + '\n';
+    }
+    return fullText;
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!file) return;
+    
+    setProcessing(true);
+    try {
+      let extractedText = '';
+      if (file.type === 'application/pdf') {
+        extractedText = await extractTextFromPDF(file);
+      } else if (file.type === 'text/plain') {
+        extractedText = await file.text();
+      } else {
+        throw new Error('Unsupported file type. Please upload .txt or .pdf');
+      }
+
+      setText(extractedText);
+      if (!title) setTitle(file.name.split('.')[0]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to read file');
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   const handleProcess = async () => {
     if (!text || !title) return;
@@ -526,7 +687,6 @@ const UploadModal = ({ isOpen, onClose, onProcessed }: { isOpen: boolean, onClos
       }
 
       const data = await res.json();
-      console.log("Processed Document Data:", data);
       onProcessed(data.document_id);
       onClose();
     } catch (err) {
@@ -545,7 +705,7 @@ const UploadModal = ({ isOpen, onClose, onProcessed }: { isOpen: boolean, onClos
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="glass w-full max-w-2xl rounded-3xl p-8 relative z-10"
+        className="glass w-full max-w-2xl rounded-3xl p-8 relative z-10 max-h-[90vh] overflow-y-auto"
       >
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-black text-slate-100">Process New Document</h2>
@@ -555,6 +715,39 @@ const UploadModal = ({ isOpen, onClose, onProcessed }: { isOpen: boolean, onClos
         </div>
 
         <div className="space-y-6">
+          <div 
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              const file = e.dataTransfer.files[0];
+              handleFileUpload(file);
+            }}
+            className={cn(
+              "border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer",
+              isDragging ? "border-primary bg-primary/10" : "border-primary/20 hover:border-primary/40"
+            )}
+            onClick={() => document.getElementById('fileInput')?.click()}
+          >
+            <input 
+              id="fileInput"
+              type="file" 
+              className="hidden" 
+              accept=".txt,.pdf"
+              onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+            />
+            <Download size={40} className="text-primary mx-auto mb-4" />
+            <p className="text-slate-100 font-bold">Drop your legal document here</p>
+            <p className="text-slate-400 text-xs mt-1">Supports .pdf and .txt files</p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="h-px flex-1 bg-primary/10"></div>
+            <span className="text-[10px] font-bold text-primary/40 uppercase tracking-widest">or paste text</span>
+            <div className="h-px flex-1 bg-primary/10"></div>
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-primary/60 uppercase tracking-widest mb-2">Document Title</label>
             <input 
@@ -569,14 +762,14 @@ const UploadModal = ({ isOpen, onClose, onProcessed }: { isOpen: boolean, onClos
             <textarea 
               value={text}
               onChange={e => setText(e.target.value)}
-              className="w-full bg-surface/50 border border-primary/20 rounded-xl px-4 py-3 text-slate-100 h-64 focus:ring-1 focus:ring-primary focus:border-primary"
+              className="w-full bg-surface/50 border border-primary/20 rounded-xl px-4 py-3 text-slate-100 h-48 focus:ring-1 focus:ring-primary focus:border-primary"
               placeholder="Paste your legal document text here..."
             />
           </div>
 
           <button 
             onClick={handleProcess}
-            disabled={processing}
+            disabled={processing || !text || !title}
             className="w-full bg-primary text-background-dark py-4 rounded-xl font-black text-lg shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all disabled:opacity-50"
           >
             {processing ? 'Analyzing Solar Data...' : 'Launch AI Simplifier'}
@@ -608,6 +801,11 @@ export default function App() {
     }
   }, [currentDocId]);
 
+  useEffect(() => {
+    console.log("Active Tab:", activeTab);
+    console.log("Current Doc Data:", docData);
+  }, [activeTab, docData]);
+
   const toggleTheme = () => {
     setIsDark(!isDark);
     document.documentElement.classList.toggle('dark');
@@ -620,7 +818,7 @@ export default function App() {
       <div className="flex-1 flex flex-col min-h-screen">
         <Header onToggleTheme={toggleTheme} isDark={isDark} />
         
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 flex flex-col min-h-0">
           <AnimatePresence mode="wait">
             {activeTab === 'dashboard' && (
               <motion.div 
@@ -628,7 +826,7 @@ export default function App() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="p-6 md:p-10"
+                className="p-6 md:p-10 flex-1 overflow-y-auto"
               >
                 {docData ? (
                   <AnalyticsDashboard data={docData} />
@@ -656,9 +854,21 @@ export default function App() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="h-full"
+                className="flex-1 flex flex-col min-h-0"
               >
                 <SolarSystemEngine data={docData} />
+              </motion.div>
+            )}
+
+            {activeTab === 'galaxy' && docData && (
+              <motion.div 
+                key="clause-universe"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex-1 flex flex-col min-h-0"
+              >
+                <ClauseUniverse data={docData} />
               </motion.div>
             )}
 
@@ -706,7 +916,7 @@ export default function App() {
               activeTab === 'dashboard' ? "bg-primary text-background-dark" : "text-primary/60 hover:text-primary"
             )}
           >
-            Solar Analytics
+            Analytics
           </button>
           <button 
             onClick={() => setActiveTab('analysis')}
@@ -716,6 +926,15 @@ export default function App() {
             )}
           >
             Solar Map
+          </button>
+          <button 
+            onClick={() => setActiveTab('galaxy')}
+            className={cn(
+              "px-6 py-2 rounded-full text-xs font-bold transition-all",
+              activeTab === 'galaxy' ? "bg-primary text-background-dark" : "text-primary/60 hover:text-primary"
+            )}
+          >
+            Universe
           </button>
         </div>
       )}

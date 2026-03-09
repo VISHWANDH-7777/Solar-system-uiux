@@ -6,6 +6,26 @@
   --color-background-dark: #0a0904;
   --color-surface: #221f10;
   
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+  
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-blue-500: #3b82f6;
+  --color-orange-500: #f97316;
+  --color-purple-500: #a855f7;
+  
   --font-display: "Inter", sans-serif;
 }
 
