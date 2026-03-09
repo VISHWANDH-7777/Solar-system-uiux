@@ -39,7 +39,11 @@ import {
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
-  PolarRadiusAxis
+  PolarRadiusAxis,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis
 } from 'recharts';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -71,7 +75,7 @@ const processDocumentWithAI = async (title: string, text: string) => {
     - title: A short, descriptive title for the clause.
     - text: The original text of the clause.
     - simplified: A clear, plain-English explanation of what the clause means for a non-lawyer.
-    - category: One of "Financial", "Obligations", "Liability", "Termination", or "General".
+    - category: One of "Financial", "Legal", "Operational", "IP", or "Force Majeure".
     - importance: A score from 0-100 indicating how critical this clause is to the overall agreement.
     - riskLevel: One of "Low", "Medium", or "High".
     - complexity: A score from 0-100 indicating how difficult the legal language is.
@@ -337,11 +341,64 @@ const AnalyticsDashboard = ({ data }: { data: DocumentData }) => {
     }
   };
 
-  const distributionData = [
-    { name: 'Liability', value: 42, color: '#f2cc0d' },
-    { name: 'Termination', value: 28, color: 'rgba(242, 204, 13, 0.6)' },
-    { name: 'Intellectual Prop', value: 30, color: 'rgba(242, 204, 13, 0.2)' },
-  ];
+  // 1. Calculate Distribution Data
+  const categoryCounts = data.clauses.reduce((acc: Record<string, number>, c) => {
+    acc[c.category] = (acc[c.category] || 0) + 1;
+    return acc;
+  }, {});
+
+  const distributionData = Object.entries(categoryCounts).map(([name, count], idx) => {
+    const percentage = Math.round((count / data.clauses.length) * 100);
+    const colors = ['#f2cc0d', 'rgba(242, 204, 13, 0.6)', 'rgba(242, 204, 13, 0.3)', 'rgba(242, 204, 13, 0.1)'];
+    return { name, value: percentage, color: colors[idx % colors.length] };
+  });
+
+  // 2. Calculate Risk Heatmap Data
+  const heatmapCategories = ['Financial', 'Legal', 'Operational', 'IP', 'Force Majeure'];
+  const riskLevels = ['High', 'Medium', 'Low'];
+  
+  const heatmapMatrix = heatmapCategories.map(cat => {
+    return riskLevels.map(level => {
+      return data.clauses.filter(c => 
+        (c.category || '').toLowerCase().includes(cat.toLowerCase()) && 
+        c.risk_level === level
+      ).length;
+    });
+  });
+
+  // 3. Calculate Harmony Wave Data
+  const sectionNames = ["Preamble", "Service Levels", "Financials", "IP & Confidentiality", "Termination", "Execution"];
+  const clausesPerSection = Math.ceil(data.clauses.length / sectionNames.length);
+  
+  const waveData = sectionNames.map((name, idx) => {
+    const start = idx * clausesPerSection;
+    const end = Math.min(start + clausesPerSection, data.clauses.length);
+    const sectionClauses = data.clauses.slice(start, end);
+    
+    if (sectionClauses.length === 0) return { name, value: 50 };
+
+    let obligationScore = 0;
+    let protectionScore = 0;
+
+    sectionClauses.forEach(c => {
+      const text = ((c.clause_text || '') + " " + (c.clause_title || '')).toLowerCase();
+      if (text.includes('must') || text.includes('shall') || text.includes('required') || text.includes('obligation') || text.includes('penalty')) {
+        obligationScore += 1;
+      }
+      if (text.includes('protection') || text.includes('rights') || text.includes('indemnity') || text.includes('warrant') || text.includes('fair')) {
+        protectionScore += 1;
+      }
+    });
+
+    // Calculate harmony index scaled to 0-100 for AreaChart
+    const harmonyIndex = ((protectionScore - obligationScore) / sectionClauses.length) * 50 + 50;
+    return { name, value: Math.max(10, Math.min(90, harmonyIndex)) };
+  });
+
+  // Validation Logs
+  console.log("Extracted Clauses:", data.clauses.length);
+  console.log("Risk Matrix:", heatmapMatrix);
+  console.log("Harmony Scores:", waveData);
 
   return (
     <div ref={dashboardRef} className="space-y-10 animate-in fade-in duration-500 bg-background-dark p-4 rounded-3xl">
@@ -379,8 +436,9 @@ const AnalyticsDashboard = ({ data }: { data: DocumentData }) => {
               <h3 className="text-4xl font-black text-slate-100 tracking-tighter">{data.document.overall_risk_score}</h3>
               <p className="text-slate-400 text-sm font-medium">/ 100</p>
             </div>
-            <p className="text-red-400 text-xs font-bold mt-2 flex items-center gap-1">
-              <TrendingUp size={14} /> +5% vs avg
+            <p className={cn("text-xs font-bold mt-2 flex items-center gap-1", data.document.overall_risk_score > 50 ? "text-red-400" : "text-emerald-400")}>
+              {data.document.overall_risk_score > 50 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+              {data.document.overall_risk_score > 50 ? 'High Risk Profile' : 'Balanced Profile'}
             </p>
           </div>
 
@@ -392,8 +450,8 @@ const AnalyticsDashboard = ({ data }: { data: DocumentData }) => {
             <h3 className="text-4xl font-black text-slate-100 tracking-tighter">
               {data.document.complexity_score > 70 ? 'HIGH' : data.document.complexity_score > 40 ? 'MID' : 'LOW'}
             </h3>
-            <p className="text-emerald-400 text-xs font-bold mt-2 flex items-center gap-1">
-              <TrendingDown size={14} /> -2% vs v1
+            <p className="text-slate-400 text-xs font-bold mt-2 flex items-center gap-1">
+              Score: {data.document.complexity_score}
             </p>
           </div>
 
@@ -404,7 +462,7 @@ const AnalyticsDashboard = ({ data }: { data: DocumentData }) => {
             </div>
             <h3 className="text-4xl font-black text-slate-100 tracking-tighter">{data.document.fairness_index}%</h3>
             <p className="text-emerald-400 text-xs font-bold mt-2 flex items-center gap-1">
-              <TrendingUp size={14} /> +1.4%
+              <TrendingUp size={14} /> Index
             </p>
           </div>
 
@@ -471,26 +529,24 @@ const AnalyticsDashboard = ({ data }: { data: DocumentData }) => {
             <div className="text-center text-[10px] text-primary/60 font-bold uppercase">IP</div>
             <div className="text-center text-[10px] text-primary/60 font-bold uppercase">Force Majeure</div>
             
-            <div className="text-right text-[10px] text-primary/60 font-bold uppercase flex items-center justify-end pr-2">Critical</div>
-            <div className="bg-primary/80 rounded-lg aspect-square flex items-center justify-center text-background-dark font-black hover:scale-110 transition-transform cursor-help">9</div>
-            <div className="bg-primary/40 rounded-lg aspect-square hover:scale-110 transition-transform cursor-help"></div>
-            <div className="bg-primary/20 rounded-lg aspect-square hover:scale-110 transition-transform cursor-help"></div>
-            <div className="bg-primary/60 rounded-lg aspect-square flex items-center justify-center text-background-dark font-black hover:scale-110 transition-transform cursor-help">4</div>
-            <div className="bg-primary/10 rounded-lg aspect-square hover:scale-110 transition-transform cursor-help"></div>
-
-            <div className="text-right text-[10px] text-primary/60 font-bold uppercase flex items-center justify-end pr-2">Moderate</div>
-            <div className="bg-primary/20 rounded-lg aspect-square hover:scale-110 transition-transform cursor-help"></div>
-            <div className="bg-primary/60 rounded-lg aspect-square flex items-center justify-center text-background-dark font-black hover:scale-110 transition-transform cursor-help">12</div>
-            <div className="bg-primary/40 rounded-lg aspect-square hover:scale-110 transition-transform cursor-help"></div>
-            <div className="bg-primary/10 rounded-lg aspect-square hover:scale-110 transition-transform cursor-help"></div>
-            <div className="bg-primary/20 rounded-lg aspect-square hover:scale-110 transition-transform cursor-help"></div>
-
-            <div className="text-right text-[10px] text-primary/60 font-bold uppercase flex items-center justify-end pr-2">Low</div>
-            <div className="bg-primary/10 rounded-lg aspect-square hover:scale-110 transition-transform cursor-help"></div>
-            <div className="bg-primary/10 rounded-lg aspect-square hover:scale-110 transition-transform cursor-help"></div>
-            <div className="bg-primary/40 rounded-lg aspect-square flex items-center justify-center text-background-dark font-black hover:scale-110 transition-transform cursor-help">21</div>
-            <div className="bg-primary/20 rounded-lg aspect-square hover:scale-110 transition-transform cursor-help"></div>
-            <div className="bg-primary/10 rounded-lg aspect-square hover:scale-110 transition-transform cursor-help"></div>
+            {riskLevels.map((level, rIdx) => (
+              <React.Fragment key={level}>
+                <div className="text-right text-[10px] text-primary/60 font-bold uppercase flex items-center justify-end pr-2">{level}</div>
+                {heatmapCategories.map((cat, cIdx) => {
+                  const count = heatmapMatrix[cIdx][rIdx];
+                  const opacity = count > 0 ? Math.min(0.2 + (count * 0.1), 1) : 0.05;
+                  return (
+                    <div 
+                      key={`${cat}-${level}`}
+                      style={{ backgroundColor: count > 0 ? `rgba(242, 204, 13, ${opacity})` : 'rgba(255,255,255,0.05)' }}
+                      className="rounded-lg aspect-square flex items-center justify-center text-background-dark font-black hover:scale-110 transition-transform cursor-help"
+                    >
+                      {count > 0 ? count : ''}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
           </div>
         </div>
       </section>
@@ -503,22 +559,40 @@ const AnalyticsDashboard = ({ data }: { data: DocumentData }) => {
             </h3>
             <p className="text-xs text-slate-400 mt-1">Measuring the equilibrium between obligation and protection throughout the document duration.</p>
           </div>
-          <div className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold rounded-full border border-emerald-500/30 uppercase tracking-widest">Balanced</div>
-        </div>
-        <div className="relative h-32 w-full overflow-hidden rounded-xl bg-surface/30">
-          <div className="absolute inset-x-0 top-1/2 h-px bg-primary/10"></div>
-          <div className="harmony-wave absolute inset-0 opacity-80 animate-pulse"></div>
-          <div className="absolute top-0 left-[30%] h-full w-px bg-primary/40 border-l border-dashed flex flex-col justify-start">
-            <div className="bg-primary text-background-dark text-[8px] font-black px-1 py-0.5 rounded ml-2 mt-2">PEAK RISK</div>
+          <div className={cn(
+            "px-3 py-1 text-[10px] font-bold rounded-full border uppercase tracking-widest",
+            data.document.fairness_index > 60 ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border-amber-500/30"
+          )}>
+            {data.document.fairness_index > 60 ? 'Balanced' : 'Unbalanced'}
           </div>
         </div>
+        <div className="h-48 w-full overflow-hidden rounded-xl bg-surface/30 p-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={waveData}>
+              <defs>
+                <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f2cc0d" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#f2cc0d" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#221f10', border: '1px solid rgba(242, 204, 13, 0.2)', borderRadius: '12px' }}
+                itemStyle={{ color: '#f2cc0d' }}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="value" 
+                stroke="#f2cc0d" 
+                fillOpacity={1} 
+                fill="url(#colorValue)" 
+                strokeWidth={3}
+                animationDuration={2000}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
         <div className="flex justify-between mt-4 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-          <span>Preamble</span>
-          <span>Service Levels</span>
-          <span>Financials</span>
-          <span>IP & Confidentiality</span>
-          <span>Termination</span>
-          <span>Execution</span>
+          {sectionNames.map(name => <span key={name}>{name}</span>)}
         </div>
       </section>
 

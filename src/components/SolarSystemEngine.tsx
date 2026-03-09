@@ -183,12 +183,12 @@ export const SolarSystemEngine: React.FC<{ data: DocumentData }> = ({ data }) =>
       fairness: data.document.fairness_index,
       complexity: data.document.complexity_score,
       penaltyClauses: data.clauses.filter(c => 
-        c.clause_title.toLowerCase().includes('penalty') || 
-        c.clause_text.toLowerCase().includes('penalty')
+        (c.clause_title || '').toLowerCase().includes('penalty') || 
+        (c.clause_text || '').toLowerCase().includes('penalty')
       ).length,
       liabilityClauses: data.clauses.filter(c => 
-        c.clause_title.toLowerCase().includes('liability') || 
-        c.clause_text.toLowerCase().includes('liability')
+        (c.clause_title || '').toLowerCase().includes('liability') || 
+        (c.clause_text || '').toLowerCase().includes('liability')
       ).length,
     };
 
@@ -241,9 +241,11 @@ export const SolarSystemEngine: React.FC<{ data: DocumentData }> = ({ data }) =>
 
     const resize = () => {
       const container = containerRef.current;
-      if (container) {
-        canvas.width = container.clientWidth;
-        canvas.height = container.clientHeight;
+      if (container && canvas) {
+        requestAnimationFrame(() => {
+          canvas.width = container.clientWidth;
+          canvas.height = container.clientHeight;
+        });
       }
     };
 
@@ -278,8 +280,8 @@ export const SolarSystemEngine: React.FC<{ data: DocumentData }> = ({ data }) =>
         ctx.fill();
       });
 
-      // Draw Orbits
-      ctx.strokeStyle = params.systemMode === 'DARK' ? 'rgba(242, 204, 13, 0.05)' : 'rgba(242, 204, 13, 0.1)';
+      // Draw Global Orbits (Background)
+      ctx.strokeStyle = params.systemMode === 'DARK' ? 'rgba(242, 204, 13, 0.03)' : 'rgba(242, 204, 13, 0.06)';
       ctx.lineWidth = 1;
       [125, 240, 410].forEach(r => {
         ctx.beginPath();
@@ -348,34 +350,102 @@ export const SolarSystemEngine: React.FC<{ data: DocumentData }> = ({ data }) =>
       // Draw Objects
       objects.forEach(obj => {
         // Update position
-        const speedFactor = isAnalyzing ? (1 + analysisProgress * 2) : 1;
+        const speedFactor = isAnalyzing ? (1 + analysisProgress * 3) : 1;
         obj.angle += obj.orbitSpeed * params.gravityFactor * speedFactor;
         
         let orbitRadius = obj.orbitRadius;
         if (isAnalyzing && obj.type === 'PLANET') {
           // Simulate future orbit shift
-          const shift = (obj.sentiment === 'NEGATIVE' ? 50 : -30) * analysisProgress;
+          const shift = (obj.sentiment === 'NEGATIVE' ? 60 : -40) * analysisProgress;
           orbitRadius += shift;
+        }
+
+        // Draw Individual Orbit Path
+        if (obj.type === 'PLANET') {
+          const isSelected = selectedObject?.id === obj.id;
+          const baseOpacity = isAnalyzing ? 0.3 : (isSelected ? 0.2 : 0.05);
+          
+          ctx.beginPath();
+          
+          // Dynamic color based on risk and analysis
+          if (isAnalyzing) {
+            const riskColor = obj.sentiment === 'NEGATIVE' ? '239, 68, 68' : '59, 130, 246';
+            const pulse = Math.sin(time * 0.1) * 0.1;
+            ctx.strokeStyle = `rgba(${riskColor}, ${baseOpacity + pulse})`;
+            ctx.lineWidth = obj.sentiment === 'NEGATIVE' ? 2 : 1;
+            
+            // Add "wobble" to unstable orbits during analysis
+            if (obj.sentiment === 'NEGATIVE') {
+              const segments = 64;
+              for (let i = 0; i <= segments; i++) {
+                const a = (i / segments) * Math.PI * 2;
+                const wobble = Math.sin(a * 8 + time * 0.2) * 3 * analysisProgress;
+                const ox = centerX + Math.cos(a) * (orbitRadius + wobble);
+                const oy = centerY + Math.sin(a) * (orbitRadius + wobble);
+                if (i === 0) ctx.moveTo(ox, oy);
+                else ctx.lineTo(ox, oy);
+              }
+            } else {
+              ctx.arc(centerX, centerY, orbitRadius, 0, Math.PI * 2);
+            }
+          } else {
+            ctx.strokeStyle = isSelected ? 'rgba(242, 204, 13, 0.3)' : 'rgba(242, 204, 13, 0.05)';
+            ctx.lineWidth = isSelected ? 2 : 1;
+            ctx.arc(centerX, centerY, orbitRadius, 0, Math.PI * 2);
+          }
+          
+          ctx.stroke();
+
+          // Draw "Flow" particles on the orbit
+          if (isSelected || isAnalyzing) {
+            const particleCount = isAnalyzing ? 4 : 2;
+            for (let p = 0; p < particleCount; p++) {
+              const pOffset = (p * Math.PI * 2 / particleCount);
+              const pAngle = (time * obj.orbitSpeed * 3 + pOffset) % (Math.PI * 2);
+              
+              let px, py;
+              if (isAnalyzing && obj.sentiment === 'NEGATIVE') {
+                const wobble = Math.sin(pAngle * 8 + time * 0.2) * 3 * analysisProgress;
+                px = centerX + Math.cos(pAngle) * (orbitRadius + wobble);
+                py = centerY + Math.sin(pAngle) * (orbitRadius + wobble);
+              } else {
+                px = centerX + Math.cos(pAngle) * orbitRadius;
+                py = centerY + Math.sin(pAngle) * orbitRadius;
+              }
+              
+              ctx.fillStyle = isAnalyzing 
+                ? (obj.sentiment === 'NEGATIVE' ? '#ef4444' : '#3b82f6') 
+                : (isSelected ? '#f2cc0d' : obj.color);
+              
+              ctx.beginPath();
+              ctx.arc(px, py, isAnalyzing ? 1.5 : 1, 0, Math.PI * 2);
+              ctx.fill();
+              
+              // Add trail for particles during analysis
+              if (isAnalyzing) {
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = ctx.fillStyle as string;
+                ctx.beginPath();
+                ctx.arc(px, py, 1, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+              }
+            }
+          }
         }
 
         let x = centerX + Math.cos(obj.angle) * orbitRadius;
         let y = centerY + Math.sin(obj.angle) * orbitRadius;
 
-        // Draw Trajectory Lines
+        // Draw Trajectory Projection Lines
         if (isAnalyzing && obj.type === 'PLANET') {
           ctx.beginPath();
-          ctx.strokeStyle = obj.sentiment === 'NEGATIVE' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)';
-          ctx.setLineDash([5, 5]);
-          ctx.arc(centerX, centerY, orbitRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = obj.sentiment === 'NEGATIVE' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.2)';
+          ctx.setLineDash([2, 4]);
+          ctx.moveTo(centerX + Math.cos(obj.angle) * obj.orbitRadius, centerY + Math.sin(obj.angle) * obj.orbitRadius);
+          ctx.lineTo(x, y);
           ctx.stroke();
           ctx.setLineDash([]);
-          
-          // Draw future path arc
-          ctx.beginPath();
-          ctx.strokeStyle = obj.sentiment === 'NEGATIVE' ? '#ef4444' : '#3b82f6';
-          ctx.lineWidth = 2;
-          ctx.arc(centerX, centerY, orbitRadius, obj.angle, obj.angle + 1, false);
-          ctx.stroke();
         }
 
         // Apply Black Hole distortion

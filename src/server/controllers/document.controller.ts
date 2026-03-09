@@ -18,15 +18,15 @@ export const uploadDocument = async (req: Request, res: Response, next: NextFunc
     `).run(docId, userId, title, data.overall.category, data.overall.purpose, text, data.overall.riskScore, data.overall.complexityScore, data.overall.fairnessIndex);
 
     const insertClause = db.prepare(`
-      INSERT INTO clauses (id, document_id, clause_title, clause_text, simplified_text, importance_score, risk_level, complexity_score, financial_risk, legal_risk, operational_risk, orbit_level)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO clauses (id, document_id, clause_title, clause_text, simplified_text, category, importance_score, risk_level, complexity_score, financial_risk, legal_risk, operational_risk, orbit_level)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     for (const clause of data.clauses) {
       const clauseId = Math.random().toString(36).substring(7);
       let orbit = clause.importance > 75 ? "Inner" : clause.importance > 40 ? "Middle" : "Outer";
       insertClause.run(
-        clauseId, docId, clause.title, clause.text, clause.simplified,
+        clauseId, docId, clause.title, clause.text, clause.simplified, clause.category,
         clause.importance, clause.riskLevel, clause.complexity,
         clause.financialRisk, clause.legalRisk, clause.operationalRisk, orbit
       );

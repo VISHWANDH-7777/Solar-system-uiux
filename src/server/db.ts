@@ -30,6 +30,7 @@ db.exec(`
     clause_title TEXT,
     clause_text TEXT,
     simplified_text TEXT,
+    category TEXT,
     importance_score INTEGER,
     risk_level TEXT,
     complexity_score INTEGER,
@@ -40,5 +41,12 @@ db.exec(`
     FOREIGN KEY(document_id) REFERENCES documents(id)
   );
 `);
+
+// Migration: Add category to clauses if it doesn't exist
+try {
+  db.exec("ALTER TABLE clauses ADD COLUMN category TEXT;");
+} catch (e) {
+  // Column might already exist
+}
 
 export default db;
