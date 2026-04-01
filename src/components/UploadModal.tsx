@@ -7,7 +7,6 @@ import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import * as pdfjsLib from 'pdfjs-dist';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -39,38 +38,30 @@ export const UploadModal = ({
   const [processing, setProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const extractTextFromPDF = async (file: File) => {
-    const arrayBuffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const pdf = await loadingTask.promise;
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const strings = content.items.map((item: any) => item.str);
-      fullText += strings.join(' ') + '\n';
-    }
-    return fullText;
-  };
-
   const handleFileUpload = async (file: File) => {
     if (!file) return;
     
     setProcessing(true);
     try {
-      let extractedText = '';
-      if (file.type === 'application/pdf') {
-        extractedText = await extractTextFromPDF(file);
-      } else if (file.type === 'text/plain') {
-        extractedText = await file.text();
-      } else {
-        throw new Error('Unsupported file type. Please upload .txt or .pdf');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload file');
       }
 
-      setText(extractedText);
+      const data = await response.json();
+      setText(data.text);
       if (!title) setTitle(file.name.split('.')[0]);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to read file');
+      console.error('Upload error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to upload file');
     } finally {
       setProcessing(false);
     }

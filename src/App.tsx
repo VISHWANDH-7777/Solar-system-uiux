@@ -53,7 +53,6 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import * as pdfjsLib from 'pdfjs-dist';
 import { DocumentData, Clause, Document } from './types';
 
 // Firebase Imports
@@ -82,8 +81,6 @@ import {
 } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 
-// Set PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 import { SolarSystemEngine } from './components/SolarSystemEngine';
 import { ClauseUniverse } from './components/ClauseUniverse';
 import { Settings as SettingsView } from './components/Settings';
@@ -294,38 +291,33 @@ const UploadModal = ({ isOpen, onClose, onProcessed, user, highThinking }: { isO
   const [processing, setProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const extractTextFromPDF = async (file: File) => {
-    const arrayBuffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const pdf = await loadingTask.promise;
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const strings = content.items.map((item: any) => item.str);
-      fullText += strings.join(' ') + '\n';
-    }
-    return fullText;
-  };
-
   const handleFileUpload = async (file: File) => {
     if (!file) return;
     
     setProcessing(true);
     try {
-      let extractedText = '';
-      if (file.type === 'application/pdf') {
-        extractedText = await extractTextFromPDF(file);
-      } else if (file.type === 'text/plain') {
-        extractedText = await file.text();
-      } else {
-        throw new Error('Unsupported file type. Please upload .txt or .pdf');
+      console.log("Uploading file:", file.name);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Upload failed");
       }
 
-      setText(extractedText);
+      const data = await response.json();
+      console.log("File uploaded and parsed:", data);
+
+      setText(data.text);
       if (!title) setTitle(file.name.split('.')[0]);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to read file');
+      console.error("Upload error:", err);
+      alert(err instanceof Error ? err.message : 'Failed to process file');
     } finally {
       setProcessing(false);
     }

@@ -33,6 +33,15 @@ export const AnalyticsDashboard = ({ data }: { data: any }) => {
   const dashboardRef = React.useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  if (!data || !data.document || !data.clauses) {
+    return (
+      <div className="p-10 text-center text-slate-400">
+        <Activity className="animate-pulse mx-auto mb-4 text-primary" size={48} />
+        <p>Loading orbital intelligence...</p>
+      </div>
+    );
+  }
+
   const exportToPDF = async () => {
     if (!dashboardRef.current) return;
     setIsExporting(true);
@@ -48,7 +57,7 @@ export const AnalyticsDashboard = ({ data }: { data: any }) => {
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`LegalOrbit_Analysis_${data.title.replace(/\s+/g, '_')}.pdf`);
+      pdf.save(`LegalOrbit_Analysis_${(data.document?.title || 'Document').replace(/\s+/g, '_')}.pdf`);
     } catch (error) {
       console.error("Export failed:", error);
     } finally {
@@ -56,16 +65,22 @@ export const AnalyticsDashboard = ({ data }: { data: any }) => {
     }
   };
 
+  const riskProfile = {
+    high: data.clauses.filter((c: any) => c.risk_level === 'High').length,
+    medium: data.clauses.filter((c: any) => c.risk_level === 'Medium').length,
+    low: data.clauses.filter((c: any) => c.risk_level === 'Low').length,
+  };
+
   const riskData = [
-    { name: 'High', value: data.riskProfile.high, color: '#ef4444' },
-    { name: 'Medium', value: data.riskProfile.medium, color: '#f59e0b' },
-    { name: 'Low', value: data.riskProfile.low, color: '#10b981' },
+    { name: 'High', value: riskProfile.high, color: '#ef4444' },
+    { name: 'Medium', value: riskProfile.medium, color: '#f59e0b' },
+    { name: 'Low', value: riskProfile.low, color: '#10b981' },
   ];
 
   const sentimentData = [
-    { name: 'Favorable', value: 65 },
-    { name: 'Neutral', value: 25 },
-    { name: 'Unfavorable', value: 10 },
+    { name: 'Favorable', value: data.document?.fairness_index || 0 },
+    { name: 'Neutral', value: Math.max(0, 100 - (data.document?.fairness_index || 0) - (data.document?.overall_risk_score || 0)) },
+    { name: 'Unfavorable', value: data.document?.overall_risk_score || 0 },
   ];
 
   return (
@@ -76,7 +91,7 @@ export const AnalyticsDashboard = ({ data }: { data: any }) => {
             <Analytics size={18} />
             <span className="text-[10px] font-bold uppercase tracking-widest">Orbital Analysis Report</span>
           </div>
-          <h1 className="text-3xl font-black text-slate-100 tracking-tight">{data.title}</h1>
+          <h1 className="text-3xl font-black text-slate-100 tracking-tight">{data.document?.title || 'Untitled Document'}</h1>
         </div>
         <button 
           onClick={exportToPDF}
@@ -90,10 +105,10 @@ export const AnalyticsDashboard = ({ data }: { data: any }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
-          { label: 'Total Clauses', value: data.clauses.length, icon: FileText, color: 'text-blue-400' },
-          { label: 'Risk Score', value: `${data.score}/100`, icon: Shield, color: 'text-red-400' },
-          { label: 'Analysis Time', value: '1.2s', icon: Clock, color: 'text-purple-400' },
-          { label: 'Compliance', value: '94%', icon: CheckCircle2, color: 'text-green-400' },
+          { label: 'Total Clauses', value: data.clauses?.length || 0, icon: FileText, color: 'text-blue-400' },
+          { label: 'Risk Score', value: `${data.document?.overall_risk_score || 0}/100`, icon: Shield, color: 'text-red-400' },
+          { label: 'Complexity', value: `${data.document?.complexity_score || 0}%`, icon: Clock, color: 'text-purple-400' },
+          { label: 'Fairness', value: `${data.document?.fairness_index || 0}%`, icon: CheckCircle2, color: 'text-green-400' },
         ].map((stat, i) => (
           <motion.div 
             key={i}
@@ -155,7 +170,7 @@ export const AnalyticsDashboard = ({ data }: { data: any }) => {
         <div className="glass p-8 rounded-3xl border border-primary/10">
           <h3 className="text-lg font-bold text-slate-100 mb-8 flex items-center gap-2">
             <PieChart size={18} className="text-primary" />
-            Sentiment Analysis
+            Fairness vs Risk
           </h3>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -194,17 +209,20 @@ export const AnalyticsDashboard = ({ data }: { data: any }) => {
           Critical Findings
         </h3>
         <div className="space-y-4">
-          {data.clauses.filter((c: any) => c.risk === 'high').map((clause: any, i: number) => (
+          {data.clauses?.filter((c: any) => c.risk_level === 'High').map((clause: any, i: number) => (
             <div key={i} className="p-4 rounded-xl bg-red-500/5 border border-red-500/10 flex gap-4">
               <div className="size-8 rounded-lg bg-red-500/20 flex items-center justify-center text-red-400 shrink-0">
                 <AlertCircle size={16} />
               </div>
               <div>
-                <h4 className="text-slate-100 font-bold text-sm mb-1">{clause.title}</h4>
-                <p className="text-slate-400 text-xs leading-relaxed">{clause.summary}</p>
+                <h4 className="text-slate-100 font-bold text-sm mb-1">{clause.clause_title}</h4>
+                <p className="text-slate-400 text-xs leading-relaxed line-clamp-3">{clause.simplified_text}</p>
               </div>
             </div>
           ))}
+          {data.clauses?.filter((c: any) => c.risk_level === 'High').length === 0 && (
+            <p className="text-slate-400 text-sm italic">No critical risk clauses identified.</p>
+          )}
         </div>
       </div>
     </div>

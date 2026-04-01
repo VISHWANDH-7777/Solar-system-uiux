@@ -3,6 +3,7 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import path from "path";
 import documentRoutes from "./src/server/routes/document.routes";
+import uploadRoutes from "./src/server/routes/upload.routes";
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ async function startServer() {
 
   // Mount modular routes
   app.use("/api/document", documentRoutes);
+  app.use("/api/upload", uploadRoutes);
 
   // 4. API 404 Handler (Step 2)
   app.all("/api/*", (req, res) => {
