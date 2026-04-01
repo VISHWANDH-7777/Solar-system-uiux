@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: documents
+    // Fields:
+    //   - userId: string (required) - Owner of the document
+    //   - title: string (required) - Document title
+    //   - purpose: string - AI-generated purpose summary
+    //   - category: string - Document category
+    //   - overall_risk_score: number - Overall risk score (0-100)
+    //   - complexity_score: number - Overall complexity score (0-100)
+    //   - fairness_index: number - Fairness index (0-100)
+    //   - created_at: string (required) - Creation timestamp
+    //
+    // Collection: documents/{docId}/clauses
+    // Fields:
+    //   - documentId: string (required) - Parent document ID
+    //   - clause_title: string (required) - Clause title
+    //   - clause_text: string (required) - Original clause text
+    //   - simplified_text: string (required) - AI-simplified text
+    //   - category: string - Clause category
+    //   - importance_score: number - Importance score (0-100)
+    //   - risk_level: string - Risk level (Low, Medium, High)
+    //   - complexity: number - Complexity score (0-100)
+    //   - financial_risk: number - Financial risk score (0-100)
+    //   - legal_risk: number - Legal risk score (0-100)
+    //   - operational_risk: number - Operational risk score (0-100)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner(docId) {
+      return isAuthenticated() && request.auth.uid == get(/databases/$(database)/documents/documents/$(docId)).data.userId;
+    }
+
+    function isValidDocument(data) {
+      return data.keys().hasAll(['userId', 'title', 'created_at']) &&
+             data.userId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.created_at is string;
+    }
+
+    function isValidClause(data) {
+      return data.keys().hasAll(['documentId', 'clause_title', 'clause_text', 'simplified_text']) &&
+             data.documentId is string &&
+             data.clause_title is string && data.clause_title.size() < 200 &&
+             data.clause_text is string && data.clause_text.size() < 50000 &&
+             data.simplified_text is string && data.simplified_text.size() < 50000;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "vishwastar2005@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+             data.email is string &&
+             data.role in ['admin', 'client'] &&
+             (!('displayName' in data) || data.displayName is string) &&
+             (!('photoURL' in data) || data.photoURL is string) &&
+             (!('theme' in data) || data.theme in ['dark', 'light']) &&
+             (!('highThinkingEnabled' in data) || data.highThinkingEnabled is bool);
+    }
+
+    match /documents/{docId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId) && isValidDocument(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && isValidDocument(request.resource.data) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+
+      match /clauses/{clauseId} {
+        allow read: if isDocOwner(docId);
+        allow create: if isDocOwner(docId) && isValidClause(request.resource.data);
+        allow update: if isDocOwner(docId) && isValidClause(request.resource.data);
+        allow delete: if isDocOwner(docId);
+      }
+    }
+    
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'client' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+    }
+  }
+}

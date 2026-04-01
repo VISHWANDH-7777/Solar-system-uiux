@@ -51,6 +51,18 @@ interface Star {
   twinkleOffset: number;
 }
 
+interface Comet {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  color: string;
+  opacity: number;
+  life: number;
+}
+
 export const SolarSystemEngine: React.FC<{ data: DocumentData }> = ({ data }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -60,6 +72,7 @@ export const SolarSystemEngine: React.FC<{ data: DocumentData }> = ({ data }) =>
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisResults, setAnalysisResults] = useState<any>(null);
+  const [comets, setComets] = useState<Comet[]>([]);
   
   // Derive parameters from document data
   const params: SolarSystemParams = useMemo(() => {
@@ -263,13 +276,32 @@ export const SolarSystemEngine: React.FC<{ data: DocumentData }> = ({ data }) =>
       const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, canvas.width);
       if (params.systemMode === 'DARK') {
         gradient.addColorStop(0, '#0a0a0a');
-        gradient.addColorStop(1, '#020617');
+        gradient.addColorStop(0.5, '#020617');
+        gradient.addColorStop(1, '#000000');
       } else {
-        gradient.addColorStop(0, '#1e293b');
-        gradient.addColorStop(1, '#0f172a');
+        gradient.addColorStop(0, '#f8fafc');
+        gradient.addColorStop(1, '#f1f5f9');
       }
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Add Nebula Clouds (Dark mode only)
+      if (params.systemMode === 'DARK') {
+        ctx.globalCompositeOperation = 'screen';
+        for (let i = 0; i < 3; i++) {
+          const cx = centerX + Math.cos(time * 0.0005 + i * 2) * 300;
+          const cy = centerY + Math.sin(time * 0.0005 + i * 2) * 300;
+          const cloudGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 600);
+          const color = i === 0 ? '59, 130, 246' : (i === 1 ? '147, 51, 234' : '30, 58, 138');
+          cloudGrad.addColorStop(0, `rgba(${color}, 0.04)`);
+          cloudGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = cloudGrad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 600, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalCompositeOperation = 'source-over';
+      }
 
       // Draw Starfield
       stars.forEach(star => {
@@ -288,6 +320,27 @@ export const SolarSystemEngine: React.FC<{ data: DocumentData }> = ({ data }) =>
         ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
         ctx.stroke();
       });
+
+      // Draw Asteroid Belt (Reflecting minor clauses or complexity)
+      const beltRadius = 350;
+      const beltWidth = 40;
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
+      ctx.lineWidth = beltWidth;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, beltRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Draw individual asteroids in the belt
+      for (let i = 0; i < 100; i++) {
+        const angle = (i / 100) * Math.PI * 2 + time * 0.002;
+        const radius = beltRadius + (Math.sin(i * 10) * beltWidth / 2);
+        const ax = centerX + Math.cos(angle) * radius;
+        const ay = centerY + Math.sin(angle) * radius;
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.2)';
+        ctx.beginPath();
+        ctx.arc(ax, ay, 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       // Draw Sun
       const sunPulseRate = isAnalyzing ? 0.1 : 0.02;
@@ -493,13 +546,18 @@ export const SolarSystemEngine: React.FC<{ data: DocumentData }> = ({ data }) =>
           ctx.fill();
           ctx.shadowBlur = 0;
 
-          // Atmosphere/Ring for high importance
-          if (obj.importance > 80) {
-            ctx.strokeStyle = `${obj.color}44`;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.ellipse(x, y, obj.radius * 2, obj.radius * 0.8, obj.angle, 0, Math.PI * 2);
-            ctx.stroke();
+          // Atmosphere/Ring for high importance or complexity
+          if (obj.importance > 70) {
+            const ringCount = obj.importance > 85 ? 2 : 1;
+            for (let r = 0; r < ringCount; r++) {
+              ctx.strokeStyle = `${obj.color}${r === 0 ? '44' : '22'}`;
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              const rx = obj.radius * (1.8 + r * 0.4);
+              const ry = obj.radius * (0.6 + r * 0.2);
+              ctx.ellipse(x, y, rx, ry, obj.angle + Math.PI / 4, 0, Math.PI * 2);
+              ctx.stroke();
+            }
           }
         } else if (obj.type === 'ASTEROID') {
           ctx.fillStyle = obj.color;
@@ -507,6 +565,55 @@ export const SolarSystemEngine: React.FC<{ data: DocumentData }> = ({ data }) =>
           ctx.arc(x, y, obj.radius, 0, Math.PI * 2);
           ctx.fill();
         }
+      });
+
+      // Update and Draw Comets
+      if (Math.random() < 0.005 && comets.length < 3) {
+        const side = Math.floor(Math.random() * 4);
+        let cx, cy, cvx, cvy;
+        if (side === 0) { cx = 0; cy = Math.random() * canvas.height; cvx = 2 + Math.random() * 3; cvy = (Math.random() - 0.5) * 2; }
+        else if (side === 1) { cx = canvas.width; cy = Math.random() * canvas.height; cvx = -2 - Math.random() * 3; cvy = (Math.random() - 0.5) * 2; }
+        else if (side === 2) { cx = Math.random() * canvas.width; cy = 0; cvx = (Math.random() - 0.5) * 2; cvy = 2 + Math.random() * 3; }
+        else { cx = Math.random() * canvas.width; cy = canvas.height; cvx = (Math.random() - 0.5) * 2; cvy = -2 - Math.random() * 3; }
+
+        const newComet: Comet = {
+          id: Math.random().toString(),
+          x: cx, y: cy, vx: cvx, vy: cvy,
+          size: 1 + Math.random() * 2,
+          color: '#93c5fd',
+          opacity: 1,
+          life: 100 + Math.random() * 100
+        };
+        setComets(prev => [...prev, newComet]);
+      }
+
+      setComets(prev => prev.map(c => ({
+        ...c,
+        x: c.x + c.vx,
+        y: c.y + c.vy,
+        life: c.life - 1,
+        opacity: c.life / 200
+      })).filter(c => c.life > 0));
+
+      comets.forEach(c => {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = c.color;
+        ctx.fillStyle = `rgba(147, 197, 253, ${c.opacity})`;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Comet tail
+        const tailGrad = ctx.createLinearGradient(c.x, c.y, c.x - c.vx * 20, c.y - c.vy * 20);
+        tailGrad.addColorStop(0, `rgba(147, 197, 253, ${c.opacity * 0.5})`);
+        tailGrad.addColorStop(1, 'rgba(147, 197, 253, 0)');
+        ctx.strokeStyle = tailGrad;
+        ctx.lineWidth = c.size;
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y);
+        ctx.lineTo(c.x - c.vx * 20, c.y - c.vy * 20);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
       });
 
       animationFrameId = requestAnimationFrame(render);
