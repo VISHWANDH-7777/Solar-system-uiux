@@ -37,6 +37,7 @@ export const UploadModal = ({
   const [title, setTitle] = useState('');
   const [processing, setProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || ((import.meta as any).env?.DEV ? 'http://localhost:5000' : '');
 
   const handleFileUpload = async (file: File) => {
     if (!file) return;
@@ -46,18 +47,25 @@ export const UploadModal = ({
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/upload', {
+      const response = await fetch(`${API_BASE_URL}/api/upload`, {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to upload file');
+      const rawText = await response.text();
+      let data: any;
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        console.error('Invalid JSON response:', rawText);
+        throw new Error('Server returned an invalid response format');
       }
 
-      const data = await response.json();
-      setText(data.text);
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload file');
+      }
+
+      setText(data.text || '');
       if (!title) setTitle(file.name.split('.')[0]);
     } catch (err) {
       console.error('Upload error:', err);

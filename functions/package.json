@@ -1,0 +1,14 @@
+{
+  "name": "legalorbit-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "firebase-functions": "^6.6.0",
+    "multer": "^2.1.1",
+    "pdf-parse": "^2.4.5"
+  }
+}

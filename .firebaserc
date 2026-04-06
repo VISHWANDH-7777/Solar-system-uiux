@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "gen-lang-client-0264515434"
+  },
+  "targets": {
+    "gen-lang-client-0264515434": {
+      "hosting": {
+        "app": [
+          "solar-dashboard-b"
+        ]
+      }
+    }
+  }
+}

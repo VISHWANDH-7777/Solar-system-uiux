@@ -8,7 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "firebase:login": "firebase login",
+    "firebase:build": "npm run build",
+    "firebase:deploy": "firebase deploy --only hosting:app,firestore:rules",
+    "firebase:deploy:hosting": "firebase deploy --only hosting:app",
+    "firebase:deploy:live": "firebase deploy --only functions:api,hosting:app"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -39,6 +44,7 @@
     "@types/node": "^22.14.0",
     "@types/pdf-parse": "^1.1.5",
     "autoprefixer": "^10.4.21",
+    "firebase-tools": "^15.12.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",

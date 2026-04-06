@@ -9,7 +9,7 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 5000;
 
   console.log(`[${new Date().toISOString()}] Initializing LegalOrbit Server...`);
 
@@ -18,7 +18,19 @@ async function startServer() {
 
   // 2. Request Logging Middleware (Step 7)
   app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] Request hit: ${req.url}`);
     console.log(`[${new Date().toISOString()}] Incoming request: ${req.method} ${req.url}`);
+    next();
+  });
+
+  // Allow frontend app to call API from a different dev origin when needed.
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      return res.status(204).end();
+    }
     next();
   });
 
@@ -29,7 +41,7 @@ async function startServer() {
 
   // Mount modular routes
   app.use("/api/document", documentRoutes);
-  app.use("/api/upload", uploadRoutes);
+  app.use("/api", uploadRoutes);
 
   // 4. API 404 Handler (Step 2)
   app.all("/api/*", (req, res) => {
