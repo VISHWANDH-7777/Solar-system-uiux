@@ -8,7 +8,7 @@ import {
   LogOut 
 } from 'lucide-react';
 import { User, signOut } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, trackEvent } from '../firebase';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -72,7 +72,10 @@ export const Sidebar = ({ activeTab, setActiveTab, user, userProfile }: {
             </div>
           </div>
           <button 
-            onClick={() => signOut(auth)}
+            onClick={() => {
+              void trackEvent('logout');
+              signOut(auth);
+            }}
             className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all"
           >
             <LogOut size={14} /> Sign Out

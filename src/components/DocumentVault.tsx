@@ -19,7 +19,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
-import { db } from '../firebase';
+import { db, trackEvent } from '../firebase';
 import { Document } from '../types';
 
 export const DocumentVault = ({ onSelect, user, handleFirestoreError, OperationType }: { 
@@ -67,6 +67,7 @@ export const DocumentVault = ({ onSelect, user, handleFirestoreError, OperationT
 
       // Delete main document
       await deleteDoc(doc(db, 'documents', docId));
+      void trackEvent('document_deleted', { document_id: docId });
       setConfirmDeleteId(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `documents/${docId}`);
@@ -119,7 +120,13 @@ export const DocumentVault = ({ onSelect, user, handleFirestoreError, OperationT
           {filteredDocs.map(doc => (
             <div 
               key={doc.id} 
-              onClick={() => onSelect(doc.id)}
+              onClick={() => {
+                void trackEvent('document_opened', {
+                  document_id: doc.id,
+                  category: doc.category || 'unknown',
+                });
+                onSelect(doc.id);
+              }}
               className="glass p-6 rounded-2xl cursor-pointer hover:border-primary/40 transition-all group relative overflow-hidden"
             >
               <div className="flex justify-between items-start mb-4">

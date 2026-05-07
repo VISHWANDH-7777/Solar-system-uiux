@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Orbit, ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, type AuthError } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, trackEvent } from '../firebase';
 
 export const Login = () => {
   const [loading, setLoading] = useState(false);
@@ -11,7 +11,10 @@ export const Login = () => {
   useEffect(() => {
     const readRedirectResult = async () => {
       try {
-        await getRedirectResult(auth);
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          void trackEvent('login', { method: 'google_redirect' });
+        }
       } catch (error) {
         console.error('Redirect result error:', error);
         setAuthError(getFriendlyAuthError(error));
@@ -35,7 +38,7 @@ export const Login = () => {
       case 'auth/operation-not-allowed':
         return 'Google sign-in is not enabled in your Firebase project. Enable Google under Authentication > Sign-in method.';
       case 'auth/invalid-api-key':
-        return 'Firebase API key is invalid. Check firebase-applet-config.json and use the correct project config.';
+        return 'Firebase API key is invalid. Check your Vite Firebase environment variables and use the correct project config.';
       case 'auth/network-request-failed':
         return 'Network error while contacting Firebase. Check your internet connection and retry.';
       default:
@@ -49,7 +52,10 @@ export const Login = () => {
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithPopup(auth, provider);
+      const credential = await signInWithPopup(auth, provider);
+      if (credential.user) {
+        void trackEvent('login', { method: 'google_popup' });
+      }
     } catch (error) {
       console.error("Login failed:", error);
 

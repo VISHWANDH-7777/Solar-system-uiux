@@ -6,7 +6,7 @@ import {
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, trackEvent } from '../firebase';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -44,6 +44,10 @@ export const UploadModal = ({
     
     setProcessing(true);
     try {
+      void trackEvent('file_upload_started', {
+        file_type: file.name.split('.').pop() || 'unknown',
+      });
+
       const formData = new FormData();
       formData.append('file', file);
 
@@ -67,8 +71,14 @@ export const UploadModal = ({
 
       setText(data.text || '');
       if (!title) setTitle(file.name.split('.')[0]);
+      void trackEvent('file_uploaded', {
+        file_type: file.name.split('.').pop() || 'unknown',
+      });
     } catch (err) {
       console.error('Upload error:', err);
+      void trackEvent('file_upload_failed', {
+        file_type: file?.name?.split('.').pop() || 'unknown',
+      });
       alert(err instanceof Error ? err.message : 'Failed to upload file');
     } finally {
       setProcessing(false);
@@ -79,6 +89,10 @@ export const UploadModal = ({
     if (!text || !title) return;
     setProcessing(true);
     try {
+      void trackEvent('document_process_started', {
+        high_thinking: highThinking,
+      });
+
       // 1. Process with AI
       const aiData = await processDocumentWithAI(title, text, highThinking);
 
@@ -123,10 +137,19 @@ export const UploadModal = ({
 
       await Promise.all(clausesPromises);
       
+      void trackEvent('document_processed', {
+        document_title: title,
+        category: aiData?.overall?.category,
+        high_thinking: highThinking,
+      });
       onProcessed(docRef.id);
       onClose();
     } catch (err) {
       console.error('Processing error:', err);
+      void trackEvent('document_process_failed', {
+        document_title: title,
+        high_thinking: highThinking,
+      });
       alert(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setProcessing(false);

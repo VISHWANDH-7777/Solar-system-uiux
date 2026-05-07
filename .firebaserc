@@ -1,13 +1,11 @@
 {
   "projects": {
-    "default": "gen-lang-client-0264515434"
+    "default": "solarsystem-5a753"
   },
   "targets": {
-    "gen-lang-client-0264515434": {
+    "solarsystem-5a753": {
       "hosting": {
-        "app": [
-          "solar-dashboard-b"
-        ]
+        "app": ["solarsystem-5a753"]
       }
     }
   }
